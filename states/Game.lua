@@ -11,9 +11,14 @@ local Label = require("lib.ui.Label")
 local Slider = require("lib.ui.Slider")
 local TextField = require("lib.ui.TextField")
 
+local Ball = require("lib.Ball")
+local balls = {}
 
 function Game:init()
     self.em = EntityMgr()
+
+    local b = Ball(1, nil, sw/2, sh/2)
+    self.em:add(b)
 end
 
 function Game:enter()
@@ -43,7 +48,7 @@ function Game:mousereleased(x, y, key)
 end
 
 function Game:draw()
-    love.graphics.clear(0, 0, 0)
+    love.graphics.clear(128, 128, 128)
     self.em:draw()
 end
 
