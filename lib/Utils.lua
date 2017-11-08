@@ -1,5 +1,8 @@
 local U = {}
 
+local sqrt = math.sqrt
+local pow = math.pow
+
 function U.color(r, g, b, a)
 	return {r, g or r, b or r, a or 255}
 end
@@ -45,6 +48,11 @@ function U.min(t)
     end
   end
   return min
+end
+
+function U.circleCol(circle1, circle2)
+	local d = (circle1.pos - circle2.pos):len()
+	return d <= circle1.r + circle2.r
 end
 
 function U.ParseCSVLine (line,sep)
