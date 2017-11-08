@@ -14,14 +14,14 @@ local Slider = require("lib.ui.Slider")
 local TextField = require("lib.ui.TextField")
 
 local kb = love.keyboard
-local mx, my = 0,0
+local mx, my = 0, 0
 
 local Ball = require("lib.Ball")
 local balls = {}
 
 local pulling = false
-local pullX, pullY = 0,0
-local pullStartX, pullStartY = 0,0
+local pullX, pullY = 0, 0
+local pullStartX, pullStartY = 0, 0
 
 function Game:init()
     self.em = EntityMgr()
@@ -68,14 +68,13 @@ function Game:update(dt)
     -- Calculate Collisions
     for i = 1, #self.balls do
         for b = i, #self.balls do
-            if self.balls[i] ~= self.balls[b] then
-                if Utils.circleCol(self.balls[i], self.balls[b]) then
-                    if not self.balls[i].hit and not self.balls[b].hit then
-                        print(string.format("balls %d and %d collided", self.balls[i].id, self.balls[b].id))
-                        self.balls[i].collisions = self.balls[i].collisions + 1
-                        self.balls[b].collisions = self.balls[b].collisions + 1
-                    end
-                end
+            if Utils.circleCol(self.balls[i], self.balls[b]) then
+                print(string.format("balls %d and %d collided", self.balls[i].id, self.balls[b].id))
+                self.balls[i].hit, self.balls[b].hit = true, true
+                self.balls[i].collisions = self.balls[i].collisions + 1
+                self.balls[b].collisions = self.balls[b].collisions + 1
+            else
+                self.balls[i].hit, self.balls[b].hit = false, false
             end
         end
     end
@@ -83,30 +82,27 @@ function Game:update(dt)
     -- Calculate Accumulators
     for i = 1, #self.balls do
         for b = i, #self.balls do
-            if self.balls[i] ~= self.balls[b] then
-                if Utils.circleCol(self.balls[i], self.balls[b]) then
-                    if not self.balls[i].hit and not self.balls[b].hit then
-                        self.balls[i].hit, self.balls[b].hit = true, true
+            if Utils.circleCol(self.balls[i], self.balls[b]) then
+                self.balls[i].hit, self.balls[b].hit = true, true
 
-                        local angle1 = (self.balls[i].pos - self.balls[b].pos):trimmed(self.balls[i].r)
-                        local angle2 = (self.balls[b].pos - self.balls[i].pos):trimmed(self.balls[b].r)
-                        local b1Vel, b2Vel = self.balls[i].velocity, self.balls[b].velocity
+                local angle1 = (self.balls[i].pos - self.balls[b].pos):trimmed(self.balls[i].r)
+                local angle2 = (self.balls[b].pos - self.balls[i].pos):trimmed(self.balls[b].r)
+                local b1Vel, b2Vel = self.balls[i].velocity, self.balls[b].velocity
 
-                        self.balls[i].accumulator = self.balls[i].accumulator + angle1:normalized() * ((b1Vel:len()+b2Vel:len()) / self.balls[i].collisions)
-                        self.balls[b].accumulator = self.balls[b].accumulator + angle2:normalized() * ((b1Vel:len()+b2Vel:len()) / self.balls[b].collisions)
-                    end
-                end
+                self.balls[i].accumulator = self.balls[i].accumulator + (angle1:normalized() * (b1Vel:len() + b2Vel:len()) / self.balls[i].collisions)
+                self.balls[b].accumulator = self.balls[b].accumulator + (angle2:normalized() * (b1Vel:len() + b2Vel:len()) / self.balls[b].collisions)
             end
         end
     end
 
     -- Add Accumulators to Velocity, reset values
     for i = 1, #self.balls do
-        self.balls[i].velocity = self.balls[i].velocity + self.balls[i].accumulator
-        self.balls[i].collisions = 0
-        self.balls[i].accumulator = vector(0,0)
-        self.balls[i].hit = false
-
+        if self.balls[i].hit then
+            self.balls[i].velocity = self.balls[i].velocity + self.balls[i].accumulator
+            self.balls[i].collisions = 0
+            self.balls[i].accumulator = vector(0, 0)
+            self.balls[i].hit = false
+        end
     end
 
     if pulling then
