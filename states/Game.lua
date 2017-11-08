@@ -16,9 +16,6 @@ local TextField = require("lib.ui.TextField")
 local kb = love.keyboard
 local mx, my = 0,0
 
-local collisions = {}
-local movements = {}
-
 local Ball = require("lib.Ball")
 local balls = {}
 
@@ -33,17 +30,26 @@ function Game:init()
     self.em:add(self.label)
     self.balls = {}
     self.b1 = Ball(1, 600, 300, Utils.color(255))
-    self.b2 = Ball(2, 200, 300, Utils.color(255, 0, 0))
-    self.b3 = Ball(3, 230, 300, Utils.color(255, 0, 0))
-    self.b4 = Ball(4, 260, 300, Utils.color(255, 0, 0))
+    self.b2 = Ball(2, 200, 275, Utils.color(255, 0, 0))
+    self.b3 = Ball(3, 200, 300, Utils.color(255, 0, 0))
+    self.b4 = Ball(4, 200, 325, Utils.color(255, 0, 0))
+    self.b5 = Ball(5, 220, 312.5, Utils.color(255, 0, 0))
+    self.b6 = Ball(6, 220, 287.5, Utils.color(255, 0, 0))
+    self.b7 = Ball(7, 240, 300, Utils.color(255, 0, 0))
     self.balls[#self.balls + 1] = self.b1
     self.balls[#self.balls + 1] = self.b2
     self.balls[#self.balls + 1] = self.b3
     self.balls[#self.balls + 1] = self.b4
+    self.balls[#self.balls + 1] = self.b5
+    self.balls[#self.balls + 1] = self.b6
+    self.balls[#self.balls + 1] = self.b7
     self.em:add(self.b1)
     self.em:add(self.b2)
     self.em:add(self.b3)
     self.em:add(self.b4)
+    self.em:add(self.b5)
+    self.em:add(self.b6)
+    self.em:add(self.b7)
 end
 
 function Game:enter()
@@ -54,44 +60,54 @@ function Game:leave()
     self.em:onExit()
 end
 
-local function handleCollisions(b1, b2, b1Pos, b2Pos, b1Vel, b2Vel)
-    print("handling collision")
-    if not b2Vel then return end
-    local angle1 = (b1Pos - b2Pos):trimInplace(b1.r)
-    local angle2 = (b2Pos - b1Pos):trimInplace(b2.r)
-    local b1NewVel = b1Vel + angle1:normalized() * ((b1Vel:len()+b2Vel:len()) / 2)
-    local b2NewVel = b2Vel + angle2:normalized() * ((b2Vel:len()+b1Vel:len()) / 2)
-    -- b1.hit, b2.hit = false,false
-
-    movements[#movements+1] = {b1, b2, b1NewVel, b2NewVel}
-    return true
-end
-
 function Game:update(dt)
     self.em:update(dt)
 
     mx, my = love.mouse.getPosition()
 
+    -- Calculate Collisions
     for i = 1, #self.balls do
-        for b = 1, #self.balls do
+        for b = i, #self.balls do
             if self.balls[i] ~= self.balls[b] then
                 if Utils.circleCol(self.balls[i], self.balls[b]) then
                     if not self.balls[i].hit and not self.balls[b].hit then
-                        self.balls[i].hit, self.balls[b].hit = true, true
                         print(string.format("balls %d and %d collided", self.balls[i].id, self.balls[b].id))
-                        collisions[#collisions + 1] = {self.balls[i], self.balls[b], self.balls[i].pos, self.balls[b].pos, self.balls[i].velocity, self.balls[b].velocity}
+                        self.balls[i].collisions = self.balls[i].collisions + 1
+                        self.balls[b].collisions = self.balls[b].collisions + 1
                     end
                 end
             end
         end
     end
 
-    for i = 1, #collisions do
-        if handleCollisions(unpack(collisions[i])) then
-            print("done")
+    -- Calculate Accumulators
+    for i = 1, #self.balls do
+        for b = i, #self.balls do
+            if self.balls[i] ~= self.balls[b] then
+                if Utils.circleCol(self.balls[i], self.balls[b]) then
+                    if not self.balls[i].hit and not self.balls[b].hit then
+                        self.balls[i].hit, self.balls[b].hit = true, true
+
+                        local angle1 = (self.balls[i].pos - self.balls[b].pos):trimmed(self.balls[i].r)
+                        local angle2 = (self.balls[b].pos - self.balls[i].pos):trimmed(self.balls[b].r)
+                        local b1Vel, b2Vel = self.balls[i].velocity, self.balls[b].velocity
+
+                        self.balls[i].accumulator = self.balls[i].accumulator + angle1:normalized() * ((b1Vel:len()+b2Vel:len()) / self.balls[i].collisions)
+                        self.balls[b].accumulator = self.balls[b].accumulator + angle2:normalized() * ((b1Vel:len()+b2Vel:len()) / self.balls[b].collisions)
+                    end
+                end
+            end
         end
     end
-    collisions = {}
+
+    -- Add Accumulators to Velocity, reset values
+    for i = 1, #self.balls do
+        self.balls[i].velocity = self.balls[i].velocity + self.balls[i].accumulator
+        self.balls[i].collisions = 0
+        self.balls[i].accumulator = vector(0,0)
+        self.balls[i].hit = false
+
+    end
 
     if pulling then
         pullX = mx - pullStartX
@@ -110,7 +126,7 @@ end
 function Game:mousepressed(x, y, key)
     if key == 1 then
         pulling = true
-        pullStartX, pullStartY = x, y
+        pullStartX, pullStartY = self.b1.pos.x, self.b1.pos.y
     end
 end
 
