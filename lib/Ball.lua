@@ -15,7 +15,7 @@ function Ball:new(id, x, y, color, r)
     self.hit = false
 
     self.accumulator = vector(0,0)
-    self.collisions = 0
+    self.collisions = {}
 end
 
 function Ball:shoot(target, forceVec)

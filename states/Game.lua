@@ -67,12 +67,12 @@ function Game:update(dt)
 
     -- Calculate Collisions
     for i = 1, #self.balls do
-        for b = i, #self.balls do
+        for b = i+1, #self.balls do
             if Utils.circleCol(self.balls[i], self.balls[b]) then
                 print(string.format("balls %d and %d collided", self.balls[i].id, self.balls[b].id))
                 self.balls[i].hit, self.balls[b].hit = true, true
-                self.balls[i].collisions = self.balls[i].collisions + 1
-                self.balls[b].collisions = self.balls[b].collisions + 1
+                table.insert(self.balls[i].collisions, self.balls[b])
+                table.insert(self.balls[b].collisions, self.balls[i])
             else
                 self.balls[i].hit, self.balls[b].hit = false, false
             end
@@ -81,17 +81,15 @@ function Game:update(dt)
 
     -- Calculate Accumulators
     for i = 1, #self.balls do
-        for b = i, #self.balls do
-            if Utils.circleCol(self.balls[i], self.balls[b]) then
-                self.balls[i].hit, self.balls[b].hit = true, true
+        for c=1, #self.balls[i].collisions do
+                self.balls[i].hit, self.balls[i].collisions[c].hit = true, true
 
-                local angle1 = (self.balls[i].pos - self.balls[b].pos):trimmed(self.balls[i].r)
-                local angle2 = (self.balls[b].pos - self.balls[i].pos):trimmed(self.balls[b].r)
-                local b1Vel, b2Vel = self.balls[i].velocity, self.balls[b].velocity
+                local angle1 = (self.balls[i].pos - self.balls[i].collisions[c].pos):trimmed(self.balls[i].r)
+                local angle2 = (self.balls[i].collisions[c].pos - self.balls[i].pos):trimmed(self.balls[i].collisions[c].r)
+                local b1Vel, b2Vel = self.balls[i].velocity, self.balls[i].collisions[c].velocity
 
-                self.balls[i].accumulator = self.balls[i].accumulator + (angle1:normalized() * (b1Vel:len() + b2Vel:len()) / self.balls[i].collisions)
-                self.balls[b].accumulator = self.balls[b].accumulator + (angle2:normalized() * (b1Vel:len() + b2Vel:len()) / self.balls[b].collisions)
-            end
+                self.balls[i].accumulator = self.balls[i].accumulator + (angle1:normalized() * (b1Vel:len() + b2Vel:len()) / #self.balls[i].collisions)
+                self.balls[i].collisions[c].accumulator = self.balls[i].collisions[c].accumulator + (angle2:normalized() * (b1Vel:len() + b2Vel:len()) / #self.balls[i].collisions[c].collisions)
         end
     end
 
@@ -99,7 +97,7 @@ function Game:update(dt)
     for i = 1, #self.balls do
         if self.balls[i].hit then
             self.balls[i].velocity = self.balls[i].velocity + self.balls[i].accumulator
-            self.balls[i].collisions = 0
+            self.balls[i].collisions = {}
             self.balls[i].accumulator = vector(0, 0)
             self.balls[i].hit = false
         end
