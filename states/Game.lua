@@ -2,8 +2,8 @@ local Game = {}
 
 local Camera = require("hump.camera")
 
-local sw = love.graphics.getWidth()
-local sh = love.graphics.getHeight()
+ScreenWidth = love.graphics.getWidth()
+ScreenHeight = love.graphics.getHeight()
 
 local EntityMgr = require("lib.EntityMgr")
 local vector = require("hump.vector")
@@ -16,6 +16,7 @@ local TextField = require("lib.ui.TextField")
 local kb = love.keyboard
 local mx, my = 0, 0
 
+local Table = require("lib.Table")
 local Ball = require("lib.Ball")
 local balls = {}
 
@@ -26,23 +27,21 @@ local pullStartX, pullStartY = 0, 0
 function Game:init()
     self.em = EntityMgr()
 
-    self.label = Label(0, 20, sw, 40, "Collision")
+    self.label = Label(0, 20, ScreenWidth, 40, "Collision")
     self.em:add(self.label)
-    self.balls = {}
-    self.b1 = Ball(1, 600, 300, Utils.color(255))
-    self.b2 = Ball(2, 200, 275, Utils.color(255, 0, 0))
-    self.b3 = Ball(3, 200, 300, Utils.color(255, 0, 0))
-    self.b4 = Ball(4, 200, 325, Utils.color(255, 0, 0))
-    self.b5 = Ball(5, 220, 312.5, Utils.color(255, 0, 0))
-    self.b6 = Ball(6, 220, 287.5, Utils.color(255, 0, 0))
-    self.b7 = Ball(7, 240, 300, Utils.color(255, 0, 0))
-    self.balls[#self.balls + 1] = self.b1
-    self.balls[#self.balls + 1] = self.b2
-    self.balls[#self.balls + 1] = self.b3
-    self.balls[#self.balls + 1] = self.b4
-    self.balls[#self.balls + 1] = self.b5
-    self.balls[#self.balls + 1] = self.b6
-    self.balls[#self.balls + 1] = self.b7
+    self.table = Table(800, 400)
+    self.em:add(self.table)
+    self.table.layer = 0
+    self.b0 = Ball(0, self.table.pos.x + self.table.width - self.table.width / 4, self.table.ballPoint.y, self.table, Utils.color(255))
+    self.b1 = Ball(1, self.table.ballPoint.x, self.table.ballPoint.y - 25, self.table, Utils.color(255, 255, 0))
+    self.b2 = Ball(2, self.table.ballPoint.x - 20, self.table.ballPoint.y - 12.5, self.table, Utils.color(0, 0, 255))
+    self.b3 = Ball(3, self.table.ballPoint.x, self.table.ballPoint.y, self.table, Utils.color(0, 0, 0))
+    self.b4 = Ball(4, self.table.ballPoint.x, self.table.ballPoint.y + 25, self.table, Utils.color(128, 0, 128))
+    self.b5 = Ball(5, self.table.ballPoint.x - 20, self.table.ballPoint.y + 12.5, self.table, Utils.color(255, 69, 0))
+    self.b6 = Ball(6, self.table.ballPoint.x + 20, self.table.ballPoint.y + 12.5, self.table, Utils.color(0, 255, 0))
+    self.b7 = Ball(7, self.table.ballPoint.x + 20, self.table.ballPoint.y - 12.5, self.table, Utils.color(165, 42, 42))
+    self.b8 = Ball(8, self.table.ballPoint.x + 40, self.table.ballPoint.y, self.table, Utils.color(255, 0, 0))
+    self.em:add(self.b0)
     self.em:add(self.b1)
     self.em:add(self.b2)
     self.em:add(self.b3)
@@ -50,6 +49,7 @@ function Game:init()
     self.em:add(self.b5)
     self.em:add(self.b6)
     self.em:add(self.b7)
+    self.em:add(self.b8)
 end
 
 function Game:enter()
@@ -66,40 +66,47 @@ function Game:update(dt)
     mx, my = love.mouse.getPosition()
 
     -- Calculate Collisions
-    for i = 1, #self.balls do
-        for b = i+1, #self.balls do
-            if Utils.circleCol(self.balls[i], self.balls[b]) then
-                print(string.format("balls %d and %d collided", self.balls[i].id, self.balls[b].id))
-                self.balls[i].hit, self.balls[b].hit = true, true
-                table.insert(self.balls[i].collisions, self.balls[b])
-                table.insert(self.balls[b].collisions, self.balls[i])
-            else
-                self.balls[i].hit, self.balls[b].hit = false, false
+    for i = 1, #self.em.entities do
+        if self.em.entities[i]:is(Ball) then
+            for b = i + 1, #self.em.entities do
+                if self.em.entities[b]:is(Ball) then
+                    if Utils.circleCol(self.em.entities[i], self.em.entities[b]) then
+                        self.em.entities[i].hit, self.em.entities[b].hit = true, true
+                        table.insert(self.em.entities[i].collisions, self.em.entities[b])
+                        table.insert(self.em.entities[b].collisions, self.em.entities[i])
+                        print(string.format("%d cols: %d  %d cols: %d", self.em.entities[i].id, #self.em.entities[i].collisions, self.em.entities[b].id, #self.em.entities[b].collisions))
+                    else
+                        self.em.entities[i].hit, self.em.entities[b].hit = false, false
+                    end
+                end
             end
         end
     end
 
     -- Calculate Accumulators
-    for i = 1, #self.balls do
-        for c=1, #self.balls[i].collisions do
-                self.balls[i].hit, self.balls[i].collisions[c].hit = true, true
+    for i = 1, #self.em.entities do
+        if self.em.entities[i]:is(Ball) then
+            for c = 1, #self.em.entities[i].collisions do
+                self.em.entities[i].hit, self.em.entities[i].collisions[c].hit = true, true
 
-                local angle1 = (self.balls[i].pos - self.balls[i].collisions[c].pos):trimmed(self.balls[i].r)
-                local angle2 = (self.balls[i].collisions[c].pos - self.balls[i].pos):trimmed(self.balls[i].collisions[c].r)
-                local b1Vel, b2Vel = self.balls[i].velocity, self.balls[i].collisions[c].velocity
+                local angle1 = (self.em.entities[i].pos - self.em.entities[i].collisions[c].pos):normalized()
+                local angle2 = (self.em.entities[i].collisions[c].pos - self.em.entities[i].pos):normalized()
+                local b1Vel, b2Vel = self.em.entities[i].velocity, self.em.entities[i].collisions[c].velocity
 
-                self.balls[i].accumulator = self.balls[i].accumulator + (angle1:normalized() * (b1Vel:len() + b2Vel:len()) / #self.balls[i].collisions)
-                self.balls[i].collisions[c].accumulator = self.balls[i].collisions[c].accumulator + (angle2:normalized() * (b1Vel:len() + b2Vel:len()) / #self.balls[i].collisions[c].collisions)
+                self.em.entities[i].accumulator = self.em.entities[i].accumulator + (angle1 * ((b2Vel + b1Vel) / 4 / #self.em.entities[i].collisions[c].collisions):len())
+                self.em.entities[i].collisions[c].accumulator = self.em.entities[i].collisions[c].accumulator + (angle2 * ((b1Vel + b2Vel) / 4 / #self.em.entities[i].collisions):len())
+            end
         end
     end
 
     -- Add Accumulators to Velocity, reset values
-    for i = 1, #self.balls do
-        if self.balls[i].hit then
-            self.balls[i].velocity = self.balls[i].velocity + self.balls[i].accumulator
-            self.balls[i].collisions = {}
-            self.balls[i].accumulator = vector(0, 0)
-            self.balls[i].hit = false
+    for i = 1, #self.em.entities do
+        if self.em.entities[i]:is(Ball) then
+            if self.em.entities[i].hit then
+                self.em.entities[i].velocity = self.em.entities[i].velocity + self.em.entities[i].accumulator
+                self.em.entities[i].collisions = {}
+                self.em.entities[i].accumulator = vector(0, 0)
+            end
         end
     end
 
@@ -120,7 +127,7 @@ end
 function Game:mousepressed(x, y, key)
     if key == 1 then
         pulling = true
-        pullStartX, pullStartY = self.b1.pos.x, self.b1.pos.y
+        pullStartX, pullStartY = self.b0.pos.x, self.b0.pos.y
     end
 end
 
@@ -128,13 +135,13 @@ function Game:mousereleased(x, y, key)
     if key == 1 then
         if pulling then
             pulling = false
-            self.b1:shoot(vector(x, y), vector(pullX, pullY))
+            self.b0:shoot(vector(x, y), vector(pullX, pullY))
         end
     end
 end
 
 function Game:draw()
-    love.graphics.clear(128, 128, 128)
+    love.graphics.clear(200, 200, 200)
     self.em:draw()
     if pulling then
         love.graphics.line(pullStartX, pullStartY, mx, my)
